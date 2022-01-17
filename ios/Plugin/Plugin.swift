@@ -70,6 +70,31 @@ public class CapacitorGoogleMaps: CustomMapViewEvents {
 
     }
 
+    @objc func moveCamera(_ call: CAPPluginCall) {
+        guard let mapId = call.getString("mapId") else {
+            call.reject("map not found")
+            return
+        }
+
+        DispatchQueue.main.async {
+            guard let customMapView = self.customMapViews[mapId]  else {
+                call.reject("map not found")
+                return
+            }
+
+            let mapCameraPosition = MapCameraPosition()
+            let cameraPosition = call.getObject("cameraPosition", JSObject())
+            mapCameraPosition.updateFromJSObject(cameraPosition)
+
+            let camera = GMSMutableCameraPosition.camera(withLatitude: mapCameraPosition.latitude,
+                                                         longitude: mapCameraPosition.longitude,
+                                                         zoom: customMapView.GMapView.camera.zoom)
+            customMapView.GMapView.animate(to: camera)
+
+            call.resolve(cameraPosition)
+        }
+    }
+
     @objc func addMarker(_ call: CAPPluginCall) {
         let mapId: String = call.getString("mapId", "")
 
