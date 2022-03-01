@@ -7,12 +7,12 @@ import GoogleMaps
 public class CapacitorGoogleMaps: CAPPlugin, GMSMapViewDelegate, GMSPanoramaViewDelegate {
 
     var GOOGLE_MAPS_KEY: String = "";
-    var GOOGLE_MAPS_KEY_TEST: String = "";
     var mapViewController: GMViewController!;
     var streetViewController: GMStreetViewController!;
     var DEFAULT_ZOOM: Double = 12.0;
 
-    var hashMap = [Int : GMSMarker]();
+    var hashMap = [String : GMSMarker]();
+    var hashPolyline = [String : GMSPolyline]();
 
     @objc func initialize(_ call: CAPPluginCall) {
 
@@ -50,6 +50,7 @@ public class CapacitorGoogleMaps: CAPPlugin, GMSMapViewDelegate, GMSPanoramaView
             ]
             self.bridge?.viewController?.view.addSubview(self.mapViewController.view)
             self.mapViewController.GMapView.delegate = self
+
             self.notifyListeners("onMapReady", data: nil)
         }
         call.resolve([
@@ -90,6 +91,7 @@ public class CapacitorGoogleMaps: CAPPlugin, GMSMapViewDelegate, GMSPanoramaView
                 marker.isFlat = isFlat
                 marker.opacity = opacity
                 marker.isDraggable = draggable
+                marker.appearAnimation = GMSMarkerAnimation.pop
 
                 if imageData != nil {
                     marker.icon = UIImage(data: imageData!)
@@ -103,13 +105,15 @@ public class CapacitorGoogleMaps: CAPPlugin, GMSMapViewDelegate, GMSPanoramaView
                 // get auto-generated id of the just added marker,
                 // put this marker into a hashmap with the corresponding id,
                 // so we can retrieve the marker by id later on
-                self.hashMap[marker.hash.hashValue] = marker;
+                let id = "m\(marker.hash.hashValue)"
+
+                self.hashMap[id] = marker;
 
                 call.resolve([
                     "markerAdded": true,
                     // get marker specific values
                     "marker": [
-                        "id": marker.hash.hashValue
+                        "id": id
                     ]
                 ])
             }
@@ -118,7 +122,7 @@ public class CapacitorGoogleMaps: CAPPlugin, GMSMapViewDelegate, GMSPanoramaView
 
     @objc func removeMarker(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
-            let id = call.getInt("id");
+            let id = call.getString("id");
 
             if (id == nil) {
                 // todo
@@ -426,24 +430,64 @@ public class CapacitorGoogleMaps: CAPPlugin, GMSMapViewDelegate, GMSPanoramaView
 
     @objc func addPolyline(_ call: CAPPluginCall) {
 
-        let points = call.getArray("points", AnyObject.self)
-
         DispatchQueue.main.async {
+            let id = call.getString("id");
 
-            let path = GMSMutablePath()
+            if (id == nil) {
 
-            for point in points ?? [] {
-                let coords = CLLocationCoordinate2D(latitude: point["latitude"] as! CLLocationDegrees, longitude: point["longitude"] as! CLLocationDegrees)
-                path.add(coords)
+              let points = call.getArray("points", AnyObject.self)
+
+                  let path = GMSMutablePath()
+
+                  for point in points ?? [] {
+                      let coords = CLLocationCoordinate2D(latitude: point["latitude"] as! CLLocationDegrees, longitude: point["longitude"] as! CLLocationDegrees)
+                      path.add(coords)
+                  }
+
+                  let polyline = GMSPolyline(path: path)
+
+                  let blue = UIColor(red: 9/255, green: 120/255, blue: 245/255, alpha: 1.0)
+                  let primary = UIColor(red: 236/255, green: 84/255, blue: 84/255, alpha: 1.0)
+
+                  let bluePrimary = GMSStrokeStyle.gradient(from: blue, to: primary)
+                  polyline.spans = [GMSStyleSpan(style: bluePrimary)]
+                  polyline.strokeWidth = 5.0
+
+                  polyline.map = self.mapViewController.GMapView
+
+                  let id = "m\(polyline.hash.hashValue)"
+
+                  self.hashPolyline[id] = polyline;
+
+                  call.resolve([
+                      "created": true,
+                      "polyline": [
+                        "id": id
+                      ]
+                  ])
+
+            } else {
+
+                let polyline = self.hashPolyline[id!];
+
+                if (polyline != nil) {
+                    polyline?.map = nil;
+                    self.hashPolyline[id!] = nil
+
+                    call.resolve([
+                      "removed": true
+                    ])
+                } else {
+                    call.resolve([
+                      "removed": false,
+                      "id": self.hashMap
+                    ])
+                }
+
             }
 
-            let polyline = GMSPolyline(path: path)
-
-            polyline.map = self.mapViewController.GMapView
-            call.resolve([
-                "created": true
-            ])
         }
+
     }
 
     @objc func addPolygon(_ call: CAPPluginCall) {
@@ -517,7 +561,11 @@ public class CapacitorGoogleMaps: CAPPlugin, GMSMapViewDelegate, GMSPanoramaView
             "coordinates": [
                 "latitude": marker.position.latitude,
                 "longitude": marker.position.longitude
-            ]
+            ],
+            "id": marker.hash.hashValue,
+            "title": marker.title ?? "",
+            "snippet": marker.snippet ?? "",
+            "metadata": marker.userData
         ]])
     }
 
@@ -582,11 +630,10 @@ public class CapacitorGoogleMaps: CAPPlugin, GMSMapViewDelegate, GMSPanoramaView
     }
 
 
-    public func didTapMyLocationButton(for mapView: GMSMapView) -> Bool {
+    public func didTapMyLocationButton(for mapView: GMSMapView, position: GMSCameraPosition) -> Bool {
         self.notifyListeners("didTapMyLocationButton", data: ["value": true])
-        /*
-            TODO: Add animation to user's current location
-        */
+
+
         return false
     }
 
