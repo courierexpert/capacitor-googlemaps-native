@@ -7,6 +7,7 @@ import GoogleMaps
 public class CapacitorGoogleMaps: CAPPlugin, GMSMapViewDelegate, GMSPanoramaViewDelegate {
 
     var GOOGLE_MAPS_KEY: String = "";
+    var GOOGLE_MAPS_KEY_TEST: String = "";
     var mapViewController: GMViewController!;
     var streetViewController: GMStreetViewController!;
     var DEFAULT_ZOOM: Double = 12.0;
