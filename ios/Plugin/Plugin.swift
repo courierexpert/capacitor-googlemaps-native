@@ -477,11 +477,6 @@ public class CapacitorGoogleMaps: CAPPlugin, GMSMapViewDelegate, GMSPanoramaView
                     call.resolve([
                       "removed": true
                     ])
-                } else {
-                    call.resolve([
-                      "removed": false,
-                      "id": self.hashMap
-                    ])
                 }
 
             }
@@ -630,9 +625,8 @@ public class CapacitorGoogleMaps: CAPPlugin, GMSMapViewDelegate, GMSPanoramaView
     }
 
 
-    public func didTapMyLocationButton(for mapView: GMSMapView, position: GMSCameraPosition) -> Bool {
+    public func didTapMyLocationButton(for mapView: GMSMapView) -> Bool {
         self.notifyListeners("didTapMyLocationButton", data: ["value": true])
-
 
         return false
     }
